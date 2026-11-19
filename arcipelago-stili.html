@@ -1,12 +1,20 @@
 <!doctype html>
-<html lang="it" data-v="4">
+<html lang="it" data-v="5">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta http-equiv="Cache-Control" content="no-store">
 <title>Arcipelago</title>
+<!-- Ogni modulo nostro porta il numero di versione: senza, il browser e la cache di Pages tengono
+     i vecchi per 10 minuti e si mescolano con i nuovi. A ogni pubblicazione si alza v=N qui
+     (in tutte le righe), in data-v e nello script in fondo. -->
 <script type="importmap">
-{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+{ "imports": {
+  "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/",
+  "./animatore.js": "./animatore.js?v=5", "./forme.js": "./forme.js?v=5", "./glifi.js": "./glifi.js?v=5",
+  "./livello.js": "./livello.js?v=5", "./logica.js": "./logica.js?v=5", "./stili.js": "./stili.js?v=5",
+  "./pittori/base3d.js": "./pittori/base3d.js?v=5", "./pittori/plastilina.js": "./pittori/plastilina.js?v=5"
+} }
 </script>
 <style>
   :root { --testo: #1f2430; --carta: rgba(255, 255, 255, 0.82); --linea: rgba(31, 36, 48, 0.14); }
@@ -50,6 +58,6 @@
 <div id="comandi" class="barra"><button id="annulla">Annulla</button><button id="ricomincia">Ricomincia</button></div>
 <div id="avviso" hidden>Sei caduto. <b>Z</b> per tornare indietro.</div>
 <div id="versione"></div>
-<script type="module" src="principale.js?v=4"></script>
+<script type="module" src="principale.js?v=5"></script>
 </body>
 </html>
