@@ -72,15 +72,31 @@ addEventListener('keydown', (e) => {
   else if (k === 'r') ricomincia();
   else if (/^[0-9]$/.test(k)) { const i = k === '0' ? 9 : +k - 1; if (STILI[i]) scegli(i); }
 });
-// sul telefono: uno scorrimento = un passo (mai "tocca e ci va da solo": il percorso conta)
-let inizioTocco = null;
-scena.addEventListener('pointerdown', (e) => { inizioTocco = [e.clientX, e.clientY]; });
-scena.addEventListener('pointerup', (e) => {
-  if (!inizioTocco) return;
+// sul telefono: uno scorrimento = un passo (mai "tocca e ci va da solo": il percorso conta);
+// due dita = zoom. Un gesto che ha usato due dita non vale mai come passo.
+const dita = new Map();
+let inizioTocco = null, pizzico = null;
+const distanza = () => { const [a, b] = [...dita.values()]; return Math.hypot(a[0] - b[0], a[1] - b[1]); };
+scena.addEventListener('pointerdown', (e) => {
+  dita.set(e.pointerId, [e.clientX, e.clientY]);
+  if (dita.size === 1) inizioTocco = [e.clientX, e.clientY];
+  if (dita.size === 2) { inizioTocco = null; pizzico = { d: distanza(), zoom: anim.zoom }; }
+});
+scena.addEventListener('pointermove', (e) => {
+  if (!dita.has(e.pointerId)) return;
+  dita.set(e.pointerId, [e.clientX, e.clientY]);
+  if (pizzico && dita.size === 2) anim.zoom = Math.min(2.2, Math.max(0.6, pizzico.zoom * (pizzico.d / Math.max(10, distanza()))));
+});
+const fineTocco = (e) => {
+  dita.delete(e.pointerId);
+  if (dita.size < 2) pizzico = null;
+  if (!inizioTocco || e.type !== 'pointerup') { if (!dita.size) inizioTocco = null; return; }
   const dx = e.clientX - inizioTocco[0], dy = e.clientY - inizioTocco[1]; inizioTocco = null;
   if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
   esegui(Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)]);
-});
+};
+scena.addEventListener('pointerup', fineTocco);
+scena.addEventListener('pointercancel', fineTocco);
 scena.style.touchAction = 'none';
 addEventListener('wheel', (e) => { anim.zoom = Math.min(2.2, Math.max(0.6, anim.zoom * (e.deltaY > 0 ? 1.08 : 0.93))); }, { passive: true });
 addEventListener('resize', misura);
