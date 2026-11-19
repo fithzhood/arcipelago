@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="it" data-v="3">
+<html lang="it" data-v="4">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta http-equiv="Cache-Control" content="no-store">
-<title>Arcipelago — prove di stile</title>
+<title>Arcipelago</title>
 <script type="importmap">
 { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
 </script>
@@ -17,6 +17,7 @@
   #scena canvas[hidden] { display: none; }
   .barra { position: fixed; display: flex; gap: 6px; align-items: center; background: var(--carta);
     border: 1px solid var(--linea); border-radius: 10px; padding: 6px; backdrop-filter: blur(6px); }
+  .barra[hidden] { display: none; }
   #stili { top: 12px; left: 50%; transform: translateX(-50%); flex-wrap: wrap; justify-content: center; gap: 2px;
     width: max-content; max-width: calc(100% - 120px); }
   button { font: inherit; color: inherit; background: transparent; border: 0; border-radius: 7px; padding: 5px 9px; cursor: pointer; white-space: nowrap; }
@@ -44,11 +45,11 @@
 <div id="scena"></div>
 <div id="stili" class="barra"></div>
 <div id="tasti" class="barra">
-  <span><b>1–0</b> stile</span><span><b>← ↑ → ↓</b> o scorri: cammina</span><span><b>Z</b> annulla</span><span><b>R</b> ricomincia</span><span><b>rotella</b> o due dita: zoom</span>
+  <span><b>← ↑ → ↓</b> o scorri: cammina</span><span><b>Z</b> annulla</span><span><b>R</b> ricomincia</span><span><b>rotella</b> o due dita: zoom</span>
 </div>
 <div id="comandi" class="barra"><button id="annulla">Annulla</button><button id="ricomincia">Ricomincia</button></div>
 <div id="avviso" hidden>Sei caduto. <b>Z</b> per tornare indietro.</div>
 <div id="versione"></div>
-<script type="module" src="principale.js?v=3"></script>
+<script type="module" src="principale.js?v=4"></script>
 </body>
 </html>

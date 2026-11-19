@@ -25,6 +25,8 @@ const leggi = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { r
 const scrivi = (k, v) => { try { localStorage.setItem(k, v); } catch { /* niente */ } };
 const tasto = (i) => (i === 9 ? '0' : String(i + 1));
 
+// con un solo stile la barra per sceglierlo non serve
+if (STILI.length < 2) bottoni.hidden = true;
 STILI.forEach((s, i) => {
   const b = document.createElement('button');
   b.innerHTML = `<kbd>${tasto(i)}</kbd>${s.nome}`;
