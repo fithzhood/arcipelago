@@ -1,6 +1,6 @@
-// Plastilina a passo uno: pezzi bitorzoluti, impronte di polpastrelli nella normale, luce avvolgente
-// da studio. Tutto ciò che si muove si aggiorna a 12 pose al secondo, e a ogni posa la superficie
-// "bolle" un poco, come se qualcuno l'avesse toccata fra uno scatto e l'altro.
+// Plastilina: pezzi bitorzoluti, impronte di polpastrelli nella normale, luce avvolgente da studio.
+// La superficie "bolle" 12 volte al secondo, come se qualcuno l'avesse toccata fra uno scatto e
+// l'altro del passo uno. Il movimento invece resta fluido: a scatti sembrava il gioco che si impuntava.
 // Materiale ripreso dalla demo "plastilina" dell'atlante Stili.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -8,7 +8,7 @@ import { Base3D, pianoGlifo } from './base3d.js';
 import { casuale, eIsola } from '../forme.js';
 import { texGlifo } from '../glifi.js';
 
-const PAL = { T: '#2f6ad0', R: '#e07a18', M: '#8a48c8', D: '#169a6e', fantasma: '#9aa0a6', fondo: '#fbf4e4' };
+const PAL = { T: '#2f6ad0', R: '#e07a18', M: '#8a48c8', D: '#169a6e', fantasma: '#9aa0a6', fondo: '#fbf4e4', pieno: true, bordo: '#3a2c30' };
 
 const IMPRONTE = `
 varying vec3 vOP;
@@ -79,6 +79,8 @@ export function crea(renderer, gioco, anim) {
         .replace('#include <begin_vertex>', '#include <begin_vertex>\nvOP = position;');
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + IMPRONTE)
         .replace('#include <lights_physical_pars_fragment>', LUCI_CERA)
+        // colore non uniforme: la plastilina impastata a mano ha zone più chiare e più scure
+        .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= 0.9 + 0.2 * vn3(vOP * uScala * 2.7 + 11.0);')
         .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
           { float h = impronte(vOP * uScala);
             float fronte = smoothstep(0.08, 0.4, abs(dot(normal, normalize(vViewPosition))));
@@ -94,6 +96,8 @@ export function crea(renderer, gioco, anim) {
   const mesh = (geo, c, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, typeof c === 'string' ? A(c) : c); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; return o; };
   const palla = (r, seg = 28) => new THREE.SphereGeometry(r, seg, Math.round(seg * 0.7));
   const geoS = bitorzola(palla(0.08, 10), 0.03, 9);
+  const nubi = new Map();
+  const nube = (c) => { if (!nubi.has(c)) { const m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.75 }); nubi.set(c, m); materiali.push(m); } return nubi.get(c); };
 
   // fondale dipinto: cielo da teatrino, più chiaro in basso
   const cv = document.createElement('canvas'); cv.width = 16; cv.height = 256;
@@ -103,7 +107,7 @@ export function crea(renderer, gioco, anim) {
   const fondale = new THREE.CanvasTexture(cv); fondale.colorSpace = THREE.SRGBColorSpace;
 
   return new Base3D(renderer, gioco, anim, {
-    cielo: fondale, coloreNebbia: '#b8d4e8', nebbia: [22, 60], pose: 12,
+    cielo: fondale, coloreNebbia: '#b8d4e8', nebbia: [22, 60], bolle: 12, glifiOpachi: true,
     luci(scene, centro) {
       scene.add(new THREE.HemisphereLight('#fff4e4', '#6a5040', 1.1));
       const s = new THREE.DirectionalLight('#ffe8cc', 2.6);
@@ -147,11 +151,19 @@ export function crea(renderer, gioco, anim) {
     },
     lastra(a) {
       const g = new THREE.Group();
-      g.add(mesh(bitorzola(new RoundedBoxGeometry(0.92, 0.26, 0.92, 4, 0.1), 0.05, 3, a.id), a.alt ? '#e6d4b0' : '#eedfbe', 0, -0.13, 0));
-      const s = mesh(bitorzola(palla(0.34, 16), 0.1, 4, a.id), '#c4a07a', 0, -0.33, 0); s.scale.y = 0.75; g.add(s);
+      g.add(mesh(bitorzola(new RoundedBoxGeometry(0.92, 0.26, 0.92, 4, 0.1), 0.05, 3, a.id), a.alt ? '#b4bfcc' : '#c2ccd8', 0, -0.13, 0));
+      const s = mesh(bitorzola(palla(0.34, 16), 0.1, 4, a.id), '#8a96a8', 0, -0.33, 0); s.scale.y = 0.75; g.add(s);
       return g;
     },
-    glifo: (g) => pianoGlifo(texGlifo(g, PAL), 0.76),
+    glifo(g) {
+      // disco pieno come nell'ibrido, e un'ombra sotto quando galleggia
+      const o = pianoGlifo(texGlifo(g, PAL), 0.78);
+      if (!g.fantasma) {
+        const om = new THREE.Mesh(new THREE.CircleGeometry(0.3, 24), new THREE.MeshBasicMaterial({ color: '#2a2030', transparent: true, opacity: 0.2, depthWrite: false }));
+        om.rotation.x = -Math.PI / 2; om.position.set(0.12, -0.6, 0.18); o.add(om); o.userData.ombra = om;
+      }
+      return o;
+    },
     coniglio() {
       const g = new THREE.Group(), bianco = '#f6f0e8', rosa = '#f2a3ae';
       const corpo = mesh(bitorzola(palla(0.23), 0.04, 6), bianco, 0, 0.22, 0); corpo.scale.set(1, 0.92, 1.12); g.add(corpo);
@@ -167,15 +179,17 @@ export function crea(renderer, gioco, anim) {
       g.add(mesh(bitorzola(palla(0.085, 14), 0.03, 9), '#ffffff', 0, 0.24, -0.26));
       return g;
     },
+    // le nuvole coprono mezzo schermo: con lo shader delle impronte costavano piu' di tutto il resto,
+    // e i bitorzoli della geometria bastano a farle sembrare di plastilina
     nuvola(rnd, s, profonda) {
       const g = new THREE.Group(), col = profonda ? '#c6dcef' : '#fbfbf8';
       for (let i = 0, n = 4 + Math.floor(rnd() * 3); i < n; i++) {
-        const b = new THREE.Mesh(bitorzola(palla((0.5 + rnd() * 0.5) * s, 20), 0.12 * s, 2, i), A(col, { sss: 0xffffff, bump: 0.6 }));
+        const b = new THREE.Mesh(bitorzola(palla((0.5 + rnd() * 0.5) * s, 12), 0.12 * s, 2, i), nube(col));
         b.position.set((rnd() - 0.5) * 2 * s, (rnd() - 0.2) * 0.35 * s, (rnd() - 0.5) * 1.2 * s); b.scale.y = 0.62; g.add(b);
       }
       return g;
     },
-    scheggia: (tipo) => new THREE.Mesh(geoS, tipo === 'fuoco' ? A('#ff7a20') : A('#eedfbe')),
+    scheggia: (tipo) => new THREE.Mesh(geoS, tipo === 'fuoco' ? A('#ff7a20') : A('#c2ccd8')),
     ogniFotogramma(p) { POSA.value = p.ultimaPosa; },
     dispose: () => { materiali.forEach((m) => m.dispose()); geoS.dispose(); fondale.dispose(); },
   });

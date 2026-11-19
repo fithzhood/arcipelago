@@ -92,7 +92,7 @@ export function crea(renderer, gioco, anim) {
     nuvola(rnd, s, profonda) {
       const g = new THREE.Group();
       for (let i = 0, n = 4 + Math.floor(rnd() * 3); i < n; i++) {
-        const b = new THREE.Mesh(palla((0.5 + rnd() * 0.5) * s), mat(profonda ? '#a9dcff' : i % 2 ? '#ffffff' : '#f6fbff'));
+        const b = new THREE.Mesh(palla((0.5 + rnd() * 0.5) * s, 14), mat(profonda ? '#a9dcff' : i % 2 ? '#ffffff' : '#f6fbff'));
         b.position.set((rnd() - 0.5) * 2 * s, (rnd() - 0.2) * 0.35 * s, (rnd() - 0.5) * 1.2 * s); b.scale.y = 0.62; g.add(b);
       }
       return g;

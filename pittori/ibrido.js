@@ -23,6 +23,15 @@ export function crea(renderer, gioco, anim) {
   const mesh = (geo, c, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, typeof c === 'string' ? mat(c) : c); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; return o; };
   const palla = (r, seg = 24) => new THREE.SphereGeometry(r, seg, Math.round(seg * 0.7));
   const geoS = new THREE.SphereGeometry(0.07, 8, 6);
+  // trame: erba dipinta (generata con Gemini), terra, roccia e pietra (disegnate da texture/prepara.py)
+  const trame = [], caricatore = new THREE.TextureLoader();
+  const trama = (f, rx, ry = rx) => {
+    const t = caricatore.load(new URL('../texture/' + f, import.meta.url).href);
+    t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = 8;
+    trame.push(t); return t;
+  };
+  const TR = { erba: trama('erba-dipinta.jpg', 0.5), terra: trama('terra.jpg', 0.6, 1.5), roccia: trama('roccia-strati.jpg', 2, 1), pietra: trama('pietra-lastra.jpg', 1) };
+  const conTrama = (map, col = '#ffffff') => { const k = map.uuid + col; if (!cache.has(k)) cache.set(k, new THREE.MeshToonMaterial({ color: col, map, gradientMap: rampa })); return cache.get(k); };
   const ombraM = () => new THREE.MeshBasicMaterial({ color: '#1a2440', transparent: true, opacity: 0.3, depthWrite: false });
   const disco = (r) => { const o = new THREE.Mesh(new THREE.CircleGeometry(r, 24), ombraM()); o.rotation.x = -Math.PI / 2; o.userData.nb = true; return o; };
 
@@ -42,14 +51,14 @@ export function crea(renderer, gioco, anim) {
         const forma = new THREE.Shape(pol.map(([x, z]) => new THREE.Vector2(x, -z)));
         const geo = new THREE.ExtrudeGeometry(forma, { depth: 0.32, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelOffset: -0.1, bevelSegments: 5 });
         geo.rotateX(-Math.PI / 2); geo.translate(0, -0.42, 0);
-        const isola = new THREE.Mesh(geo, [mat('#7fd35a'), mat('#c99060')]);
+        const isola = new THREE.Mesh(geo, [conTrama(TR.erba), conTrama(TR.terra)]);
         isola.castShadow = isola.receiveShadow = true; scene.add(isola);
       }
       for (const { x, y, c } of liv.celle) {
         if (!'#bt'.includes(c)) continue;
         let d = 0; while (d < 4 && [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([a, b]) => eIsola(liv, x + a * (d + 1), y + b * (d + 1)))) d++;
         const sy = 1.1 + d * 0.5;
-        const g = mesh(palla(0.62), rnd() < 0.5 ? '#a87a52' : '#9a6e4a', x, -0.38 - 0.62 * sy * 0.8, y);
+        const g = mesh(palla(0.62), conTrama(TR.roccia, rnd() < 0.5 ? '#ffffff' : '#e6d8ca'), x, -0.38 - 0.62 * sy * 0.8, y);
         g.scale.set(1, sy, 1); scene.add(g);
         if (c === 'b') for (let i = 0; i < 3; i++) scene.add(mesh(palla(0.2 + rnd() * 0.08), '#3fae3a', x + (rnd() - 0.5) * 0.4, 0.15, y + (rnd() - 0.5) * 0.4));
         if (c === 't') {
@@ -60,8 +69,8 @@ export function crea(renderer, gioco, anim) {
       }
       for (const { x, y, c } of liv.celle) {
         if (c === 'o' || c === 'p') {
-          scene.add(mesh(new RoundedBoxGeometry(0.86, 0.3, 0.86, 4, 0.1), '#b88e6a', x, -0.15, y));
-          const s = mesh(palla(0.45), '#9a6e4a', x, -0.55, y); s.scale.y = 1.4; scene.add(s);
+          scene.add(mesh(new RoundedBoxGeometry(0.86, 0.3, 0.86, 4, 0.1), conTrama(TR.roccia, '#f4e6d8'), x, -0.15, y));
+          const s = mesh(palla(0.45), conTrama(TR.roccia), x, -0.55, y); s.scale.y = 1.4; scene.add(s);
           if (c === 'o') for (let i = 0; i < 3; i++) scene.add(mesh(palla(0.2), '#3fae3a', x + (i - 1) * 0.17, 0.16, y + (i % 2) * 0.1));
           else {
             scene.add(mesh(new THREE.CylinderGeometry(0.28, 0.32, 1.25, 24), '#e8e0d0', x, 0.62, y));
@@ -79,8 +88,8 @@ export function crea(renderer, gioco, anim) {
     },
     lastra(a) {
       const g = new THREE.Group();
-      g.add(mesh(new RoundedBoxGeometry(0.9, 0.26, 0.9, 4, 0.08), a.alt ? '#b8c6d6' : '#c4d1df', 0, -0.13, 0));
-      const s = mesh(palla(0.36, 16), '#7f8ea3', 0, -0.32, 0); s.scale.y = 0.75; g.add(s);
+      g.add(mesh(new RoundedBoxGeometry(0.9, 0.26, 0.9, 4, 0.08), conTrama(TR.pietra, a.alt ? '#e6ecf3' : '#ffffff'), 0, -0.13, 0));
+      const s = mesh(palla(0.36, 16), conTrama(TR.roccia, '#a6b2c4'), 0, -0.32, 0); s.scale.y = 0.75; g.add(s);
       return g;
     },
     glifo(g) {
@@ -111,13 +120,13 @@ export function crea(renderer, gioco, anim) {
       const g = new THREE.Group();
       if (profonda) return g; // con la china diventano palloni in mezzo al quadro: il vuoto lo dice già la foschia
       for (let i = 0, n = 4 + Math.floor(rnd() * 3); i < n; i++) {
-        const b = new THREE.Mesh(palla((0.5 + rnd() * 0.5) * s), mat(profonda ? '#e4f2fc' : i % 2 ? '#ffffff' : '#f6fbff'));
+        const b = new THREE.Mesh(palla((0.5 + rnd() * 0.5) * s, 14), mat(profonda ? '#e4f2fc' : i % 2 ? '#ffffff' : '#f6fbff'));
         b.position.set((rnd() - 0.5) * 2 * s, (rnd() - 0.2) * 0.35 * s, (rnd() - 0.5) * 1.2 * s); b.scale.y = 0.62; g.add(b);
       }
       return g;
     },
     scheggia: (tipo) => new THREE.Mesh(geoS, tipo === 'fuoco' ? mat('#ff7a20') : mat('#c4d1df')),
     post: (r, base) => postChina(r, base, { ink: INK, spess: 1.1 }),
-    dispose: () => { cache.forEach((m) => m.dispose()); rampa.dispose(); geoS.dispose(); fondale.dispose(); },
+    dispose: () => { cache.forEach((m) => m.dispose()); rampa.dispose(); geoS.dispose(); fondale.dispose(); trame.forEach((t) => t.dispose()); },
   });
 }
