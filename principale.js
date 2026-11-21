@@ -20,11 +20,15 @@ scena.append(tela3d, tela2d);
 // pagina è aperta, anche uscendo e rientrando in un sigillo); `salvate`: l'ultima versione su disco.
 const sviluppo = ['127.0.0.1', 'localhost'].includes(location.hostname);
 const bozze = new Map(), salvate = new Map();
+// la demo pubblicata (tutto quello che non viene dal server di sviluppo): parte dall'overworld e non ha
+// la barra in alto con zone e quadri di prova (Luca, 21/11), né i tasti 1-6 che la sostituiscono
+const demo = !sviluppo || q.get('demo') === '1'; // ?demo=1 per provarla anche in locale
+const quadroChiesto = q.get('quadro') || (demo ? 'mondo' : 'prova');
 // ?prova=grande: overworld finto a grandezza vera, solo per misurare il costo del disegno
 const defLivello = q.get('prova') === 'grande'
   ? (await import('./strumenti/mondo-finto.js')).mondoFinto({ W: +q.get('w') || 96, H: +q.get('h') || 72 })
-  : q.get('quadro') === 'mondo' ? await caricaMappa('livelli/zona-iniziale.json')
-  : { fusione: LIVELLO_FUSIONE, due: LIVELLO_DUE }[q.get('quadro')] || LIVELLO_PROVA;
+  : quadroChiesto === 'mondo' ? await caricaMappa('livelli/zona-iniziale.json')
+  : { fusione: LIVELLO_FUSIONE, due: LIVELLO_DUE }[quadroChiesto] || LIVELLO_PROVA;
 // le mappe disegnate in Tiled (esportate in JSON: vedi HANDOFF.md)
 async function caricaMappa(url) {
   const { daTiled } = await import('./livelli/tiled.js');
@@ -64,7 +68,7 @@ const ZONE_PROVA = [['iniziale', 'Prato'], ['fuoco', 'Fuoco']];
 const QUADRI = [['prova', 'Prova'], ['fusione', 'Fusione'], ['due', 'In due'], ['mondo', 'Mondo']];
 // una mappa può dire lei la sua zona; i bottoni la cambiano comunque, per confronto
 let zona = q.get('zona') || defLivello.zona || leggi('arcipelago-zona', 'iniziale');
-const quadro = q.get('quadro') || 'prova';
+const quadro = quadroChiesto;
 const soloUno = STILI.length < 2;
 const bottone = (testo, tasto, dati, fa) => {
   const b = document.createElement('button');
@@ -73,7 +77,8 @@ const bottone = (testo, tasto, dati, fa) => {
   bottoni.appendChild(b);
 };
 const separa = () => { const sep = document.createElement('span'); sep.className = 'sep'; bottoni.appendChild(sep); };
-if (soloUno) {
+if (demo) { bottoni.style.display = 'none'; document.querySelectorAll('.solo-sviluppo').forEach((e) => { e.style.display = 'none'; }); }
+else if (soloUno) {
   ZONE_PROVA.forEach(([id, nome], i) => bottone(nome, i + 1, { z: id }, () => scegliZona(id)));
   separa();
   QUADRI.forEach(([id, nome], i) => bottone(nome, i + 3, { q: id }, () => scegliQuadro(id)));
@@ -264,8 +269,8 @@ addEventListener('keydown', (e) => {
   else if (k === 'e' && sviluppo) apriEditor();
   else if (k === 'Enter') { e.preventDefault(); rigioca(); }
   else if ((k === ' ' || k === 'Tab') && gioco.stato.personaggi.length > 1) { e.preventDefault(); if (!e.repeat) esegui('cambia'); }
-  else if (soloUno && /^[1-2]$/.test(k)) scegliZona(ZONE_PROVA[+k - 1][0]);
-  else if (soloUno && /^[3-6]$/.test(k)) scegliQuadro(QUADRI[+k - 3][0]);
+  else if (!demo && soloUno && /^[1-2]$/.test(k)) scegliZona(ZONE_PROVA[+k - 1][0]);
+  else if (!demo && soloUno && /^[3-6]$/.test(k)) scegliQuadro(QUADRI[+k - 3][0]);
   else if (/^[0-9]$/.test(k)) { const i = k === '0' ? 9 : +k - 1; if (STILI[i]) scegli(i); }
 });
 // sul telefono: uno scorrimento = un passo (mai "tocca e ci va da solo": il percorso conta);
