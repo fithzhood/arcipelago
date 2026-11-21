@@ -206,8 +206,47 @@ async function esci(vinto = false) {
     comandi();
     await pittore.apriSipario();
   } finally { inTransito = false; comandi(); }
+  if (vinto) fineDemo();
 }
 bEsci.onclick = () => { esci(); bEsci.blur(); };
+
+// ---- la fine della demo (Luca, 21/11): quando tutti gli obbligatori delle isole della demo sono
+// risolti, un foglio con la percentuale (sigilli risolti su quelli delle isole della demo) e l'elenco
+// isola per isola. Torna una seconda volta solo arrivando al 100%. L'approdo non è nella demo.
+const ISOLE_DEMO = [['casa', 'La casa'], ['frutteto', 'Il frutteto'], ['radura', 'La radura'], ['pietre', 'Le pietre']];
+const fine = document.getElementById('fine');
+let fineVista = false, centoVisto = false;
+async function fineDemo(forza = false) {
+  if ((!demo && !forza) || pila.length) return;
+  const sig = [...gioco.liv.sigilli.values()].map((s) => ({ s, isola: gioco.liv.trattoDi(s.x, s.y) })).filter((x) => ISOLE_DEMO.some(([id]) => id === x.isola));
+  if (!sig.length) return;
+  const fatto = (x) => gioco.risolti.has(x.s.livello), fatti = sig.filter(fatto).length, tutti = fatti === sig.length;
+  if (!forza) {
+    if (!sig.filter((x) => !x.s.facoltativo).every(fatto)) return;
+    if (tutti ? centoVisto : fineVista) return;
+  }
+  fineVista = true; if (tutti) centoVisto = true;
+  // i nomi dei sottolivelli si leggono dai loro file: quelli mai visti vanno caricati prima
+  await Promise.all(sig.filter((x) => !titoloDi(x.s.livello)).map((x) => caricaMappa(`livelli/sottolivelli/${x.s.livello}.json`).then((d) => titoli.set(x.s.livello, d.titolo)).catch(() => {})));
+  fine.querySelector('.cento').textContent = Math.round((fatti / sig.length) * 100) + '%';
+  fine.querySelector('.quanti').textContent = tutti ? `Tutti gli ${sig.length} sigilli risolti` : `${fatti} sigilli risolti su ${sig.length}`;
+  const t = fine.querySelector('table'); t.textContent = '';
+  for (const [id, nome] of ISOLE_DEMO) {
+    const qui = sig.filter((x) => x.isola === id).sort((a, b) => a.s.facoltativo - b.s.facoltativo);
+    if (!qui.length) continue;
+    const r = t.insertRow(); r.insertCell().textContent = nome;
+    const c = r.insertCell();
+    qui.forEach((x, i) => {
+      const e = document.createElement('span'); e.className = fatto(x) ? 'si' : 'no';
+      e.textContent = (fatto(x) ? '✓ ' : '○ ') + (titoloDi(x.s.livello) || x.s.livello);
+      if (i) c.append(document.createElement('br'));
+      c.append(e);
+    });
+  }
+  fine.hidden = false; requestAnimationFrame(() => fine.classList.add('visto'));
+}
+document.getElementById('fine-continua').onclick = () => { fine.classList.remove('visto'); fine.hidden = true; };
+document.getElementById('fine-reset').onclick = () => { const u = new URL(location.href); u.searchParams.set('quadro', 'mondo'); location.replace(u); };
 
 // ---- l'editor
 const bModifica = document.getElementById('modifica'), aiutoModifica = document.getElementById('aiuto-modifica');
@@ -261,6 +300,7 @@ comandi();
 const DIR = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] };
 addEventListener('keydown', (e) => {
   if (inEditor) return; // i tasti li prende l'editor
+  if (!fine.hidden) { if (e.key === 'Escape' || e.key === 'Enter') document.getElementById('fine-continua').click(); return; }
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (DIR[k]) { e.preventDefault(); if (!e.repeat || !anim.occupato) esegui(DIR[k]); }
   else if (k === 'z' || k === 'Backspace') { e.preventDefault(); annulla(); }
@@ -324,4 +364,4 @@ renderer.setAnimationLoop((ora) => {
 
 // per il collaudo
 window.__arc = { get gioco() { return gioco; }, apriEditor, get editore() { return editore; }, bozze, salvate, get anim() { return anim; }, pila, STILI, renderer, scegli, entra, esci, get inTransito() { return inTransito; },
-  muovi: (dx, dy) => esegui([dx, dy]), cambia: () => esegui('cambia'), annulla, ricomincia, get pittore() { return pittore; } };
+  muovi: (dx, dy) => esegui([dx, dy]), fineDemo, cambia: () => esegui('cambia'), annulla, ricomincia, get pittore() { return pittore; } };
