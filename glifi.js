@@ -2,11 +2,13 @@
 // archi che dicono quanto si gira, un asse con due punte che si guardano.
 import * as THREE from 'three';
 
-export function coloreGlifo(g, pal) {
-  if (g.fantasma) return pal.fantasma;
+export function coloreGlifo(g, pal, famiglia = false) {
+  if (g.fantasma && !famiglia) return pal.fantasma;
   if (g.tipo === 'T') return g.d[0] && g.d[1] ? pal.D : pal.T;
   return pal[g.tipo];
 }
+// mescola due colori #rrggbb: k = 0 tutto a, 1 tutto b
+const mescola = (a, b, k) => '#' + [1, 3, 5].map((i) => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - k) + parseInt(b.slice(i, i + 2), 16) * k).toString(16).padStart(2, '0')).join('');
 
 export function texGlifo(g, pal, k = 1) {
   // k > 1 ingrossa i tratti: serve quando il glifo verrà ridotto a pochi pixel
@@ -20,13 +22,18 @@ export function texGlifo(g, pal, k = 1) {
 
   // disco
   const pieno = pal.pieno && !g.fantasma; // disco del colore della famiglia, segno bianco, orlo d'inchiostro
+  // Spento (si accende col talismano): disco pieno e opaco ma color pietra, appena tinto della sua
+  // famiglia, segno inciso scuro, orlo d'inchiostro tratteggiato. Prima era quasi trasparente e
+  // tutti i giudici lo trovavano troppo tenue: deve leggersi "c'è, ma non va ancora".
+  const spento = pal.pieno && g.fantasma;
+  const pietra = spento ? mescola(coloreGlifo(g, pal, true), '#c4c7ca', 0.7) : null;
   x.beginPath(); x.arc(0, 0, 56, 0, Math.PI * 2);
-  x.fillStyle = pieno ? col : pal.fondo + (g.fantasma ? '40' : 'e6'); x.fill();
-  x.lineWidth = (pieno ? 7 : 5) * k; x.strokeStyle = pieno ? pal.bordo : col;
-  if (g.fantasma) x.setLineDash([8, 7]);
+  x.fillStyle = pieno ? col : spento ? pietra : pal.fondo + (g.fantasma ? '40' : 'e6'); x.fill();
+  x.lineWidth = (pieno || spento ? 7 : 5) * k; x.strokeStyle = pieno || spento ? pal.bordo : col;
+  if (g.fantasma) x.setLineDash(spento ? [14, 9] : [8, 7]);
   x.stroke(); x.setLineDash([]);
 
-  const segno = pieno ? '#ffffff' : col;
+  const segno = pieno ? '#ffffff' : spento ? '#4a4248' : col; // spento: segno inciso scuro sulla pietra chiara
   x.strokeStyle = segno; x.fillStyle = segno; x.lineWidth = 9 * k; x.k = k;
   if (g.tipo === 'T') freccia(x, g);
   else if (g.tipo === 'R') arco(x, g.giro);

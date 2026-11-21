@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="it" data-v="5">
+<html lang="it" data-v="7">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
@@ -11,9 +11,11 @@
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/",
-  "./animatore.js": "./animatore.js?v=5", "./forme.js": "./forme.js?v=5", "./glifi.js": "./glifi.js?v=5",
-  "./livello.js": "./livello.js?v=5", "./logica.js": "./logica.js?v=5", "./stili.js": "./stili.js?v=5",
-  "./pittori/base3d.js": "./pittori/base3d.js?v=5", "./pittori/plastilina.js": "./pittori/plastilina.js?v=5"
+  "./animatore.js": "./animatore.js?v=7", "./forme.js": "./forme.js?v=7", "./glifi.js": "./glifi.js?v=7",
+  "./livello.js": "./livello.js?v=7", "./logica.js": "./logica.js?v=7", "./stili.js": "./stili.js?v=7",
+  "./pittori/base3d.js": "./pittori/base3d.js?v=7", "./pittori/plastilina.js": "./pittori/plastilina.js?v=7", "./pittori/zone.js": "./pittori/zone.js?v=7", "./pittori/animali.js": "./pittori/animali.js?v=7",
+  "./livelli/tiled.js": "./livelli/tiled.js?v=7", "./livelli/catalogo.js": "./livelli/catalogo.js?v=7",
+  "./editor.js": "./editor.js?v=7"
 } }
 </script>
 <style>
@@ -25,13 +27,14 @@
   #scena canvas[hidden] { display: none; }
   .barra { position: fixed; display: flex; gap: 6px; align-items: center; background: var(--carta);
     border: 1px solid var(--linea); border-radius: 10px; padding: 6px; backdrop-filter: blur(6px); }
-  .barra[hidden] { display: none; }
+  .barra[hidden], button[hidden], span[hidden] { display: none; }
   #stili { top: 12px; left: 50%; transform: translateX(-50%); flex-wrap: wrap; justify-content: center; gap: 2px;
     width: max-content; max-width: calc(100% - 120px); }
   button { font: inherit; color: inherit; background: transparent; border: 0; border-radius: 7px; padding: 5px 9px; cursor: pointer; white-space: nowrap; }
   button:hover { background: var(--linea); }
   button.scelto { background: var(--testo); color: #fff; }
   body[data-stile="crepuscolo"] button.scelto { color: #14102c; }
+  .sep { width: 1px; align-self: stretch; background: var(--linea); margin: 2px 6px; }
   kbd { font: 600 11px/1 ui-monospace, Consolas, monospace; opacity: 0.6; margin-right: 6px; }
   #tasti { bottom: 14px; left: 14px; padding: 8px 12px; gap: 14px; font-size: 13px; }
   #tasti span b { font-weight: 600; }
@@ -47,17 +50,32 @@
     #versione { display: none; }
   }
   #versione { position: fixed; top: 18px; right: 16px; font-size: 12px; opacity: 0.55; }
+  /* il nome del sottolivello: grande all'ingresso, poi piccolo in un angolo. Niente riquadro: è
+     scritto sul cielo viola del sigillo, con un alone scuro perché si legga anche sulle nuvole */
+  #cartiglio { position: fixed; top: 21%; left: 50%; transform: translate(-50%, 8px); text-align: center; pointer-events: none;
+    color: #fff6e6; text-shadow: 0 1px 3px rgba(30, 14, 60, 0.95), 0 0 14px rgba(40, 20, 80, 0.85), 0 0 30px rgba(40, 20, 80, 0.6); opacity: 0;
+    transition: opacity 0.7s ease, transform 0.9s ease; }
+  #cartiglio.visto { opacity: 1; transform: translate(-50%, 0); }
+  #cartiglio .nome { font: 600 34px/1.1 Georgia, "Times New Roman", serif; letter-spacing: 0.01em; white-space: nowrap; }
+  #cartiglio .sotto { font-size: 14px; opacity: 0.85; margin-top: 6px; }
+  #luogo { position: fixed; top: 18px; left: 16px; font: 600 15px/1.2 Georgia, serif; color: #fff6e6;
+    text-shadow: 0 1px 2px rgba(30, 14, 60, 0.8), 0 0 10px rgba(40, 20, 80, 0.6); }
+  #luogo[hidden] { display: none; }
+  @media (prefers-reduced-motion: reduce) { #cartiglio { transition: opacity 0.3s; transform: translate(-50%, 0); } }
+  @media (max-width: 720px) { #luogo { top: 64px; } #cartiglio .nome { font-size: 28px; } }
 </style>
 </head>
 <body>
 <div id="scena"></div>
 <div id="stili" class="barra"></div>
 <div id="tasti" class="barra">
-  <span><b>← ↑ → ↓</b> o scorri: cammina</span><span><b>Z</b> annulla</span><span><b>R</b> ricomincia</span><span><b>rotella</b> o due dita: zoom</span>
+  <span><b>1 2</b> zona</span><span><b>3 4 5 6</b> quadro</span><span id="aiuto-cambia"><b>spazio</b> cambia personaggio</span><span><b>← ↑ → ↓</b> o scorri: cammina</span><span><b>Z</b> annulla</span><span><b>R</b> ricomincia</span><span id="aiuto-esci" hidden><b>Esc</b> esci</span><span id="aiuto-rigioca" hidden><b>Invio</b> rigioca</span><span id="aiuto-modifica" hidden><b>E</b> modifica</span><span><b>rotella</b> o due dita: zoom</span>
 </div>
-<div id="comandi" class="barra"><button id="annulla">Annulla</button><button id="ricomincia">Ricomincia</button></div>
+<div id="comandi" class="barra"><button id="cambia">Cambia</button><button id="annulla">Annulla</button><button id="ricomincia">Ricomincia</button><button id="esci" hidden>Esci</button><button id="rigioca" hidden>Rigioca</button><button id="modifica" hidden>Modifica</button><button id="reset-demo" title="Ricomincia la demo da capo">Reset demo</button></div>
 <div id="avviso" hidden>Sei caduto. <b>Z</b> per tornare indietro.</div>
 <div id="versione"></div>
-<script type="module" src="principale.js?v=5"></script>
+<div id="luogo" hidden></div>
+<div id="cartiglio"><div class="nome"></div><div class="sotto"></div></div>
+<script type="module" src="principale.js?v=7"></script>
 </body>
 </html>

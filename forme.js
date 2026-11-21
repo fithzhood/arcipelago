@@ -43,6 +43,54 @@ export function contorniIsole(liv) {
   return poligoni;
 }
 
+/**
+ * Il contorno di un insieme di caselle (per esempio una lastra) come forme con i loro buchi:
+ * [{ esterno: [[x, z], ...], buchi: [[[x, z], ...], ...] }]. Una ciambella ha un buco.
+ */
+export function contornoCelle(celle) {
+  const piene = new Set(celle.map(([x, z]) => K(x, z)));
+  const c = (x, z) => piene.has(K(x, z));
+  const lati = new Map();
+  const aggiungi = (a, b) => { const k = K(a[0], a[1]); if (!lati.has(k)) lati.set(k, []); lati.get(k).push(b); };
+  for (const [x, z] of celle) {
+    const a = x - 0.5, b = x + 0.5, s = z - 0.5, d = z + 0.5;
+    if (!c(x, z - 1)) aggiungi([a, s], [b, s]);
+    if (!c(x + 1, z)) aggiungi([b, s], [b, d]);
+    if (!c(x, z + 1)) aggiungi([b, d], [a, d]);
+    if (!c(x - 1, z)) aggiungi([a, d], [a, s]);
+  }
+  const anelli = [];
+  for (;;) {
+    const k0 = [...lati.keys()].find((k) => lati.get(k).length);
+    if (k0 === undefined) break;
+    const anello = [k0.split(',').map(Number)];
+    let k = k0;
+    for (let giri = 0; giri < 10000; giri++) {
+      const fine = lati.get(k).pop();
+      k = K(fine[0], fine[1]);
+      if (k === k0) break;
+      anello.push(fine);
+    }
+    anelli.push(anello);
+  }
+  // area col segno: i contorni esterni girano in un verso, i buchi nell'altro
+  const area = (p) => p.reduce((s, [x, z], i) => { const [x2, z2] = p[(i + 1) % p.length]; return s + x * z2 - x2 * z; }, 0) / 2;
+  const dentro = ([px, pz], p) => {
+    let ok = false;
+    for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
+      const [xi, zi] = p[i], [xj, zj] = p[j];
+      if ((zi > pz) !== (zj > pz) && px < ((xj - xi) * (pz - zi)) / (zj - zi) + xi) ok = !ok;
+    }
+    return ok;
+  };
+  const forme = anelli.filter((p) => area(p) > 0).map((esterno) => ({ esterno, buchi: [] }));
+  for (const buco of anelli.filter((p) => area(p) < 0)) {
+    const m = [(buco[0][0] + buco[1][0]) / 2 + 0.01, (buco[0][1] + buco[1][1]) / 2 + 0.01];
+    (forme.find((f) => dentro(m, f.esterno)) || forme[0])?.buchi.push(buco);
+  }
+  return forme;
+}
+
 /** Celle di decoro (cespugli, alberi, scogli, pilastri, fuoco) con la loro posizione. */
 export function decori(liv) {
   return liv.celle.filter((c) => 'btopf'.includes(c.c));
