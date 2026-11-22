@@ -6,11 +6,13 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { Base3D, pianoGlifo } from './base3d.js';
 import { casuale, eIsola, contornoCelle } from '../forme.js';
-import { texGlifo } from '../glifi.js';
+import { texGlifoEtereo, texAnello, coloreGlifo } from '../glifi.js';
 import { coniglio, volpe, gatto, animaZampe } from './animali.js';
 import { ZONE } from './zone.js';
 
 const FIGURE = { coniglio, volpe, gatto };
+// metà dell'altezza della tela in pixel veri: serve ai granelli dei glifi per avere una misura nel mondo
+const ALTEZZA_SCHERMO = { value: 400 };
 
 const PAL = { T: '#2f6ad0', R: '#e07a18', M: '#8a48c8', D: '#169a6e', fantasma: '#9aa0a6', fondo: '#fbf4e4', pieno: true, bordo: '#3a2c30' };
 
@@ -282,6 +284,30 @@ export function crea(renderer, gioco, anim, opz = {}) {
     });
     P.needsUpdate = true; C.needsUpdate = true;
   };
+  /**
+   * Il mare di nuvole molto sotto le isole (22/11, dipinto con Gemini e reso ripetibile da
+   * strumenti/cielo-ripetibile.py). È un piano fermo nel mondo, quindi scorre più piano di quello che
+   * gli sta sopra e dà profondità; segue la telecamera a passi di una ripetizione, così sembra senza
+   * fine senza muoversi. Dentro i sigilli si tinge di lilla. Le zone con un fondo loro (la lava) non l'hanno.
+   */
+  let mare = null;
+  function mareDiNuvole(incantato) {
+    const T = 64, N = 6;
+    const tex = new THREE.TextureLoader().load(new URL('../trame/mare-nuvole.jpg', import.meta.url).href);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(N, N);
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const mat = new THREE.MeshBasicMaterial({ map: tex, color: incantato ? '#a892dc' : '#e4ebf7', fog: false, depthWrite: false });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(T * N, T * N), mat);
+    m.rotation.x = -Math.PI / 2; m.position.y = -30; m.renderOrder = -2; m.frustumCulled = false;
+    // la foschia: un velo del colore del cielo poco sopra, che toglie contrasto e allontana il mare
+    // (dipinto e pieno, senza velo rubava l'occhio alle isole)
+    const veloMat = new THREE.MeshBasicMaterial({ color: incantato ? '#4a3a82' : '#9fc0ea', transparent: true, opacity: incantato ? 0.42 : 0.46, fog: false, depthWrite: false });
+    const velo = new THREE.Mesh(new THREE.PlaneGeometry(T * N, T * N), veloMat);
+    velo.rotation.x = -Math.PI / 2; velo.position.y = 4; velo.renderOrder = -1; m.add(velo); // figlio: il piano è ruotato, quindi "su" è +z
+    velo.rotation.x = 0; velo.position.set(0, 0, 4);
+    materiali.push(mat, veloMat); trameSegni.push(tex);
+    return { m, T };
+  }
   const segniSigillo = new Map(), trameSegni = []; // una trama per numero
   const nube = (c) => { if (!nubi.has(c)) { const m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.75 }); nubi.set(c, m); materiali.push(m); } return nubi.get(c); };
 
@@ -361,6 +387,7 @@ export function crea(renderer, gioco, anim, opz = {}) {
         Z.sfondo(ks, x, z, giu - rnd() * 3, rnd);
       }
       if (Z.fondo) { const f = Z.fondo(k, liv); scene.add(f); segue.push(f); }
+      else mare = mareDiNuvole(sotto);
       if (sotto) recinto(k, liv);
       return { fiamme, radure: posti.map(([x, z]) => [x, z, 2.4]) };
     },
@@ -393,16 +420,71 @@ export function crea(renderer, gioco, anim, opz = {}) {
       }
       return g;
     },
+    // Il glifo è una runa di luce che fluttua (22/11, Luca: i dischi pieni sembravano segnali stradali):
+    // la runa (alone + segno) e un anello sottile che le gira attorno, un po' più in basso. Nel cielo
+    // galleggia più in alto, ondeggia e si alza verso chi guarda; coperto da una lastra ci si posa sopra
+    // piatto e si accende. Una trama per glifo diverso, una per anello di famiglia.
     glifo(g) {
-      // disco pieno come nell'ibrido, e un'ombra sotto quando galleggia
-      // una trama per glifo diverso, non per ogni glifo del mondo
       const kt = [g.tipo, g.d, g.n, g.giro, g.asse, !!g.fantasma].join('|');
-      const o = pianoGlifo(trame.get(kt) ?? trame.set(kt, texGlifo(g, PAL)).get(kt), 0.78);
+      const tex = trame.get(kt) ?? trame.set(kt, texGlifoEtereo(g, PAL)).get(kt);
+      const ka = 'anello|' + coloreGlifo(g, PAL, true) + '|' + !!g.fantasma;
+      const ta = trame.get(ka) ?? trame.set(ka, texAnello(coloreGlifo(g, PAL, true), !!g.fantasma)).get(ka);
+      const o = new THREE.Group(), piatto = new THREE.Group(); o.add(piatto);
+      const piano = (t, lato, y, ord) => {
+        const m = new THREE.Mesh(varia('piano' + lato, () => new THREE.PlaneGeometry(lato, lato)), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false }));
+        m.rotation.x = -Math.PI / 2; m.position.y = y; m.renderOrder = ord; materiali.push(m.material); piatto.add(m); return m;
+      };
+      const anello = piano(ta, 0.9, -0.05, 2), runa = piano(tex, 0.8, 0, 3);
+      o.userData = { runa, anello, piatto };
       if (!g.fantasma) {
-        const om = new THREE.Mesh(new THREE.CircleGeometry(0.3, 24), new THREE.MeshBasicMaterial({ color: '#2a2030', transparent: true, opacity: 0.2, depthWrite: false }));
-        om.rotation.x = -Math.PI / 2; om.position.set(0.12, -0.6, 0.18); o.add(om); o.userData.ombra = om;
+        // granelli di luce che salgono da sotto e svaniscono arrivando alla runa: il glifo "si regge" su di loro
+        const N = 7, pos = new Float32Array(N * 3), alfa = new Float32Array(N), semi = [];
+        for (let i = 0; i < N; i++) semi.push({ f: i / N + Math.random() * 0.1, a: Math.random() * 6.3, r: 0.12 + Math.random() * 0.2, v: 0.18 + Math.random() * 0.1 });
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('alfa', new THREE.BufferAttribute(alfa, 1));
+        const mat = new THREE.ShaderMaterial({
+          uniforms: { uColore: { value: new THREE.Color(coloreGlifo(g, PAL, true)).lerp(new THREE.Color('#ffffff'), 0.55) }, uOpac: { value: 1 }, uLato: { value: 0.095 }, uAlto: ALTEZZA_SCHERMO },
+          vertexShader: `attribute float alfa; varying float vA; uniform float uLato, uAlto;
+            void main(){ vA = alfa; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv;
+              gl_PointSize = uLato * projectionMatrix[1][1] * uAlto / -mv.z; }`,
+          fragmentShader: `uniform vec3 uColore; uniform float uOpac; varying float vA;
+            void main(){ float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.05, d) * vA * uOpac;
+              if (a < 0.01) discard; gl_FragColor = vec4(mix(uColore, vec3(1.0), smoothstep(0.25, 0.0, d)), a); }`,
+          transparent: true, depthWrite: false,
+        });
+        materiali.push(mat);
+        const punti = new THREE.Points(geo, mat); punti.frustumCulled = false; punti.renderOrder = 1;
+        o.add(punti); o.userData.granelli = { punti, semi };
       }
       return o;
+    },
+    glifoPosa(o, q, t) {
+      const { runa, anello, piatto } = o.userData, c = q.cop, sp = !!q.g.fantasma, f = q.fase;
+      // in cielo sta più su e ondeggia; sulla lastra resta appena sollevato, e respira
+      const su = sp ? 0.14 + 0.015 * Math.sin(t * 0.9 + f) : 0.24 + 0.05 * Math.sin(t * 1.5 + f);
+      o.position.y = (1 - c) * su + c * (0.07 + 0.012 * Math.sin(t * 2 + f)) + q.imp * 0.12;
+      // l'anello sta un po' sotto la runa solo in cielo (fa spessore); sulla lastra le si stringe accanto
+      anello.position.y = -0.06 * (1 - c) - 0.01;
+      // inclinato verso la telecamera quando galleggia: sembra sospeso, e si legge meglio
+      piatto.rotation.x = (1 - c) * 0.38 + 0.03 * Math.sin(t * 1.1 + f * 1.3);
+      piatto.rotation.z = (1 - c) * 0.04 * Math.sin(t * 0.8 + f);
+      o.scale.setScalar(1 + q.imp * 0.3);
+      anello.rotation.z = sp ? f : t * 0.35 + f + q.imp * 2;
+      anello.scale.setScalar(1 + q.imp * 0.5);
+      runa.material.opacity = sp ? 0.9 : 0.82 + 0.18 * c;
+      anello.material.opacity = sp ? 0.6 : Math.min(1, 0.5 + 0.45 * c + q.imp);
+      const G = o.userData.granelli;
+      if (G) {
+        // salgono da mezza casella sotto fin quasi alla runa; sulla lastra restano pochi e bassi
+        const P = G.punti.geometry.attributes.position, AL = G.punti.geometry.attributes.alfa, giu = 0.55 - 0.35 * c;
+        G.semi.forEach((s, i) => {
+          const k = (t * s.v + s.f) % 1, a = s.a + t * 0.6;
+          P.setXYZ(i, Math.cos(a) * s.r * (1 - k * 0.4), -giu + k * (giu + 0.02), Math.sin(a) * s.r * (1 - k * 0.4));
+          AL.setX(i, Math.sin(Math.PI * k));
+        });
+        P.needsUpdate = AL.needsUpdate = true;
+        G.punti.material.uniforms.uOpac.value = 0.95 - 0.55 * c + q.imp;
+      }
     },
     // la pietra del sigillo (e la meta, la sua gemella): un disco di pietra bassa col segno inciso,
     // che quando è acceso brilla d'oro con un alone; spento, il segno è solo un solco scuro
@@ -511,6 +593,11 @@ export function crea(renderer, gioco, anim, opz = {}) {
     scheggia: (tipo) => new THREE.Mesh(geoS, tipo === 'fuoco' ? A('#ff7a20') : A('#c2ccd8')),
     ogniFotogramma(p, dt) {
       POSA.value = p.ultimaPosa;
+      ALTEZZA_SCHERMO.value = renderer.domElement.height / 2;
+      if (mare) {
+        if (!mare.m.parent) p.scene.add(mare.m);
+        mare.m.position.x = Math.round(p.anim.mira.x / mare.T) * mare.T; mare.m.position.z = Math.round(p.anim.mira.z / mare.T) * mare.T;
+      }
       vita ??= Z.vita?.({ ...K, varia, lucente, vetro }, p.scene, p.gioco.liv, sorgenti) || (() => {});
       vita(dt, p.anim.tempo);
       muoviMagia(p.scene, dt, p.anim.tempo);

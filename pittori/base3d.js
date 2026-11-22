@@ -238,6 +238,7 @@ export class Base3D {
       if (u.ombra) { u.ombra.position.y = -0.55 - q.alt; u.ombra.material.opacity = (1 - q.cop) * 0.2; }
       if (u.alone) u.alone.material.opacity = 0.35 + 0.65 * q.cop + q.imp;
       if (u.luce) u.luce.intensity = 0.6 + 1.2 * q.cop + q.imp * 3;
+      this.cfg.glifoPosa?.(o, q, A.tempo); // lo stile può muovere il glifo a modo suo (plastilina: fluttua)
     });
     // schegge: un oggetto per ciascuna, riusati
     while (this.schegge.length < A.schegge.length) { const s = this.cfg.scheggia('lastra'); this.scene.add(s); this.schegge.push(s); }

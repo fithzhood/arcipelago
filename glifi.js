@@ -45,6 +45,78 @@ export function texGlifo(g, pal, k = 1) {
   return t;
 }
 
+/**
+ * Il glifo come runa di luce (22/11, Luca: i dischi pieni sembravano segnali stradali). Niente disco
+ * opaco: un alone sfumato del colore della famiglia, il segno bianco con un bagliore colorato e un
+ * filo di contorno scuro della stessa tinta, che lo tiene leggibile sul cielo chiaro e sulla lastra.
+ * Spento: alone grigio come fumo, segno scuro con un filo chiaro, niente bagliore.
+ */
+export function texGlifoEtereo(g, pal) {
+  const S = 256, sc = S / 128;
+  const fam = coloreGlifo(g, pal, true), spento = !!g.fantasma;
+  // il segno da solo, bianco, su una tela a parte: poi si tinge e si allarga per bagliore e contorno
+  const m = document.createElement('canvas'); m.width = m.height = S;
+  const y = m.getContext('2d');
+  y.translate(S / 2, S / 2); y.scale(sc, sc); y.lineCap = y.lineJoin = 'round';
+  y.strokeStyle = y.fillStyle = '#fff'; y.lineWidth = 9; y.k = 1;
+  if (g.tipo === 'T') freccia(y, g); else if (g.tipo === 'R') arco(y, g.giro); else if (g.tipo === 'M') asse(y, g.asse);
+  const tinta = (c) => { const t = document.createElement('canvas'); t.width = t.height = S; const z = t.getContext('2d'); z.drawImage(m, 0, 0); z.globalCompositeOperation = 'source-in'; z.fillStyle = c; z.fillRect(0, 0, S, S); return t; };
+
+  const cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const x = cv.getContext('2d');
+  // l'alone: pieno al centro, svanisce verso il bordo
+  const rg = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, 60 * sc);
+  const base = spento ? mescola(fam, '#c8c6cc', 0.75) : fam, hex = (a) => base + Math.round(a * 255).toString(16).padStart(2, '0');
+  if (spento) { rg.addColorStop(0, hex(0.5)); rg.addColorStop(0.6, hex(0.32)); rg.addColorStop(1, hex(0)); }
+  else { rg.addColorStop(0, hex(0.9)); rg.addColorStop(0.3, hex(0.62)); rg.addColorStop(0.6, hex(0.2)); rg.addColorStop(0.85, hex(0.05)); rg.addColorStop(1, hex(0)); }
+  x.fillStyle = rg; x.fillRect(0, 0, S, S);
+  // il bagliore sotto al segno: largo, chiaro
+  if (!spento) {
+    const bg = tinta(mescola(fam, '#ffffff', 0.55));
+    x.save(); x.shadowColor = mescola(fam, '#ffffff', 0.35); x.shadowBlur = 34; x.drawImage(bg, 0, 0); x.drawImage(bg, 0, 0); x.restore();
+  }
+  // contorno: il segno tinto, spostato tutt'intorno di qualche pixel
+  const filo = tinta(spento ? '#eeeae2' : mescola(fam, '#0d0a1a', 0.35)), r = spento ? 3 : 3.2;
+  for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; x.drawImage(filo, Math.cos(a) * r, Math.sin(a) * r); }
+  if (!spento) {
+    x.drawImage(tinta('#ffffff'), 0, 0);
+  } else x.drawImage(tinta('#4a4450'), 0, 0);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+
+/**
+ * L'anello che gira attorno al glifo: un filo di luce con piccole tacche da runa e tre scintille che,
+ * girando, sembrano orbitare. Spento: tratteggiato, grigio, senza scintille.
+ */
+export function texAnello(colore, spento = false) {
+  const S = 256, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const x = cv.getContext('2d');
+  x.translate(S / 2, S / 2); x.scale(S / 128, S / 128); x.lineCap = 'round';
+  const chiaro = spento ? '#d6d2da' : mescola(colore, '#ffffff', 0.55);
+  x.strokeStyle = chiaro; x.globalAlpha = spento ? 0.8 : 1; x.lineWidth = spento ? 2.2 : 3;
+  if (!spento) { x.shadowColor = colore; x.shadowBlur = 10; }
+  if (spento) x.setLineDash([7, 6]);
+  x.beginPath(); x.arc(0, 0, 57, 0, Math.PI * 2); x.stroke(); x.setLineDash([]);
+  if (!spento) {
+    // tacche: a coppie, irregolari, come una scrittura che non si legge
+    x.lineWidth = 2.6; x.globalAlpha = 0.85;
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2, l = [4, 7, 3, 5.5][i % 4];
+      x.beginPath(); x.moveTo(Math.cos(a) * (57 - l), Math.sin(a) * (57 - l)); x.lineTo(Math.cos(a) * 57, Math.sin(a) * 57); x.stroke();
+    }
+    x.globalAlpha = 1; x.shadowBlur = 0;
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 + 0.4, cx = Math.cos(a) * 57, cy = Math.sin(a) * 57;
+      const sg = x.createRadialGradient(cx, cy, 0, cx, cy, 7);
+      sg.addColorStop(0, '#ffffff'); sg.addColorStop(0.45, chiaro); sg.addColorStop(1, chiaro + '00');
+      x.fillStyle = sg; x.beginPath(); x.arc(cx, cy, 7, 0, Math.PI * 2); x.fill();
+    }
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+
 function punta(x, cx, cy, ang, l = 16) {
   l *= x.k || 1;
   x.save(); x.translate(cx, cy); x.rotate(ang);
