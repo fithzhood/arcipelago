@@ -1,6 +1,6 @@
 // Plastilina: pezzi bitorzoluti, impronte di polpastrelli nella normale, luce avvolgente da studio.
-// La superficie "bolle" 12 volte al secondo, come se qualcuno l'avesse toccata fra uno scatto e
-// l'altro del passo uno. Il movimento invece resta fluido: a scatti sembrava il gioco che si impuntava.
+// Fino al 21/11 la superficie "bolliva" 12 volte al secondo (stop-motion); Luca l'ha tolta: costava un
+// disegno a ogni fotogramma anche a scena ferma, e non serviva. Ora le impronte stanno ferme.
 // Materiale ripreso dalla demo "plastilina" dell'atlante Stili.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -274,7 +274,6 @@ export function crea(renderer, gioco, anim, opz = {}) {
       C.setXYZ(i, b, b * 0.88, b * 0.62 + 0.1);
     });
     P.needsUpdate = true; C.needsUpdate = true;
-    if (cortina) cortina.map.offset.x = (t * 0.04) % 1;
   };
   let segnoSigillo = null;
   const nube = (c) => { if (!nubi.has(c)) { const m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.75 }); nubi.set(c, m); materiali.push(m); } return nubi.get(c); };
@@ -287,7 +286,7 @@ export function crea(renderer, gioco, anim, opz = {}) {
   const fondale = new THREE.CanvasTexture(cv); fondale.colorSpace = THREE.SRGBColorSpace;
 
   return new Base3D(renderer, gioco, anim, {
-    cielo: fondale, coloreNebbia: Z.nebbia, nebbia: [22, 60], bolle: 12, glifiOpachi: true,
+    cielo: fondale, coloreNebbia: Z.nebbia, nebbia: [22, 60], glifiOpachi: true, // niente più `bolle` (21/11, Luca): l'impasto resta fermo
     luci(scene, centro) {
       const L = Z.luce;
       scene.add(new THREE.HemisphereLight(L.cielo, L.terra, L.amb));

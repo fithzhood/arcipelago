@@ -354,10 +354,23 @@ document.getElementById('versione').textContent = 'prova ' + document.documentEl
 const iniziale = q.get('stile') ?? leggi('arcipelago-stile2', 'lowpoly');
 scegli(Math.max(0, STILI.findIndex((s) => s.id === iniziale || String(STILI.indexOf(s)) === iniziale)));
 
-let prima = performance.now();
+// Il disegno costa (Luca, 21/11: la demo aperta teneva la scheda video al 70% e la ventola accesa).
+// Si disegna a ogni fotogramma solo mentre succede qualcosa: per 2,5 s dopo un tocco, un tasto, il
+// mouse, o dopo la fine di un'animazione (le nuvole che si aprono finiscono dopo). Poi, a scena ferma,
+// 20 fotogrammi al secondo per la vita d'ambiente (farfalle, scintille, glifi che respirano); dopo 12 s
+// senza niente ci si ferma del tutto, e il primo input fa ripartire. ?fps=pieno disegna sempre.
+let prima = performance.now(), ultimoInput = prima, ultimaAttivita = prima, ultimoDisegno = -1e9;
+const sveglia = () => { ultimoInput = performance.now(); };
+for (const tipo of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'resize', 'focus']) addEventListener(tipo, sveglia, { passive: true });
+document.addEventListener('visibilitychange', sveglia);
+const sempre = q.get('fps') === 'pieno';
 renderer.setAnimationLoop((ora) => {
-  const dt = Math.min(0.05, (ora - prima) / 1000); prima = ora;
-  if (inEditor) return; // sotto l'editor il 3D non si disegna
+  if (inEditor) { prima = ora; return; } // sotto l'editor il 3D non si disegna
+  if (anim.occupato || inTransito) ultimaAttivita = ora;
+  const calma = ora - Math.max(ultimoInput, ultimaAttivita);
+  const intervallo = sempre || calma < 2500 ? 0 : calma < 12000 ? 1000 / 20 : Infinity;
+  if (ora - ultimoDisegno < intervallo - 4) return;
+  const dt = Math.min(0.05, (ora - prima) / 1000); prima = ora; ultimoDisegno = ora;
   anim.aggiorna(dt);
   pittore?.rendi(dt);
 });
