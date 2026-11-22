@@ -465,9 +465,10 @@ export function crea(renderer, gioco, anim, opz = {}) {
       o.position.y = (1 - c) * su + c * (0.07 + 0.012 * Math.sin(t * 2 + f)) + q.imp * 0.12;
       // l'anello sta un po' sotto la runa solo in cielo (fa spessore); sulla lastra le si stringe accanto
       anello.position.y = -0.06 * (1 - c) - 0.01;
-      // inclinato verso la telecamera quando galleggia: sembra sospeso, e si legge meglio
-      piatto.rotation.x = (1 - c) * 0.38 + 0.03 * Math.sin(t * 1.1 + f * 1.3);
-      piatto.rotation.z = (1 - c) * 0.04 * Math.sin(t * 0.8 + f);
+      // sempre piatto, parallelo alla griglia (v17, Luca: inclinati in cielo e piatti sulla lastra
+      // sembravano due prospettive diverse, uno tondo e l'altro ovale). Inclinare anche quelli sulla
+      // lastra li farebbe passare attraverso il coniglio che ci sale sopra.
+      piatto.rotation.set(0, 0, 0);
       o.scale.setScalar(1 + q.imp * 0.3);
       anello.rotation.z = sp ? f : t * 0.35 + f + q.imp * 2;
       anello.scale.setScalar(1 + q.imp * 0.5);
