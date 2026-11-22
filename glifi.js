@@ -67,16 +67,18 @@ export function texGlifoEtereo(g, pal) {
   // l'alone: pieno al centro, svanisce verso il bordo
   const rg = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, 60 * sc);
   const base = spento ? mescola(fam, '#c8c6cc', 0.75) : fam, hex = (a) => base + Math.round(a * 255).toString(16).padStart(2, '0');
-  if (spento) { rg.addColorStop(0, hex(0.5)); rg.addColorStop(0.6, hex(0.32)); rg.addColorStop(1, hex(0)); }
-  else { rg.addColorStop(0, hex(0.9)); rg.addColorStop(0.3, hex(0.62)); rg.addColorStop(0.6, hex(0.2)); rg.addColorStop(0.85, hex(0.05)); rg.addColorStop(1, hex(0)); }
+  // (v16, Luca: «troppo chiari e trasparenti») cuore pieno del colore della famiglia fin quasi a metà,
+  // poi sfuma: si legge come una sfera di luce colorata, non come un disco ritagliato
+  if (spento) { rg.addColorStop(0, hex(0.85)); rg.addColorStop(0.45, hex(0.7)); rg.addColorStop(0.75, hex(0.25)); rg.addColorStop(1, hex(0)); }
+  else { rg.addColorStop(0, hex(1)); rg.addColorStop(0.45, hex(0.96)); rg.addColorStop(0.62, hex(0.6)); rg.addColorStop(0.8, hex(0.2)); rg.addColorStop(1, hex(0)); }
   x.fillStyle = rg; x.fillRect(0, 0, S, S);
-  // il bagliore sotto al segno: largo, chiaro
+  // il bagliore sotto al segno: stretto e appena più chiaro del colore, per non sbiancare il cuore
   if (!spento) {
-    const bg = tinta(mescola(fam, '#ffffff', 0.55));
-    x.save(); x.shadowColor = mescola(fam, '#ffffff', 0.35); x.shadowBlur = 34; x.drawImage(bg, 0, 0); x.drawImage(bg, 0, 0); x.restore();
+    const bg = tinta(mescola(fam, '#ffffff', 0.3));
+    x.save(); x.shadowColor = mescola(fam, '#ffffff', 0.4); x.shadowBlur = 14; x.drawImage(bg, 0, 0); x.restore();
   }
   // contorno: il segno tinto, spostato tutt'intorno di qualche pixel
-  const filo = tinta(spento ? '#eeeae2' : mescola(fam, '#0d0a1a', 0.35)), r = spento ? 3 : 3.2;
+  const filo = tinta(spento ? '#eeeae2' : mescola(fam, '#0d0a1a', 0.55)), r = spento ? 3 : 3.6;
   for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; x.drawImage(filo, Math.cos(a) * r, Math.sin(a) * r); }
   if (!spento) {
     x.drawImage(tinta('#ffffff'), 0, 0);
@@ -93,8 +95,8 @@ export function texAnello(colore, spento = false) {
   const S = 256, cv = document.createElement('canvas'); cv.width = cv.height = S;
   const x = cv.getContext('2d');
   x.translate(S / 2, S / 2); x.scale(S / 128, S / 128); x.lineCap = 'round';
-  const chiaro = spento ? '#d6d2da' : mescola(colore, '#ffffff', 0.55);
-  x.strokeStyle = chiaro; x.globalAlpha = spento ? 0.8 : 1; x.lineWidth = spento ? 2.2 : 3;
+  const chiaro = spento ? '#b8b4c0' : mescola(colore, '#ffffff', 0.25);
+  x.strokeStyle = chiaro; x.globalAlpha = 1; x.lineWidth = spento ? 2.6 : 3.8;
   if (!spento) { x.shadowColor = colore; x.shadowBlur = 10; }
   if (spento) x.setLineDash([7, 6]);
   x.beginPath(); x.arc(0, 0, 57, 0, Math.PI * 2); x.stroke(); x.setLineDash([]);

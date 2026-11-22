@@ -471,8 +471,8 @@ export function crea(renderer, gioco, anim, opz = {}) {
       o.scale.setScalar(1 + q.imp * 0.3);
       anello.rotation.z = sp ? f : t * 0.35 + f + q.imp * 2;
       anello.scale.setScalar(1 + q.imp * 0.5);
-      runa.material.opacity = sp ? 0.9 : 0.82 + 0.18 * c;
-      anello.material.opacity = sp ? 0.6 : Math.min(1, 0.5 + 0.45 * c + q.imp);
+      runa.material.opacity = 1;
+      anello.material.opacity = sp ? 0.85 : Math.min(1, 0.85 + 0.15 * c + q.imp);
       const G = o.userData.granelli;
       if (G) {
         // salgono da mezza casella sotto fin quasi alla runa; sulla lastra restano pochi e bassi
