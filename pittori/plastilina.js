@@ -19,7 +19,13 @@ const PAL = { T: '#2f6ad0', R: '#e07a18', M: '#8a48c8', D: '#169a6e', fantasma: 
 const IMPRONTE = `
 varying vec3 vOP;
 uniform float uPosa, uBump, uScala; uniform vec3 uSSS;
-float h31(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+// dado su interi (22/11): quello di prima, fract(prodotto di numeri fino a 250 mila), dava valori diversi
+// per lo stesso punto del reticolo a seconda di dove lo shader lo calcolava (arrotondamenti), e il colore
+// dell'impasto faceva gradini netti sui confini: i "quadratini" nell'erba segnalati da Luca
+float h31(vec3 p){ uvec3 q = uvec3(ivec3(floor(p)) + 4096);
+  uint h = q.x * 1597334677u ^ q.y * 3812015801u ^ q.z * 2798796415u;
+  h = (h ^ (h >> 16u)) * 2246822519u; h ^= h >> 13u; h *= 3266489917u; h ^= h >> 16u;
+  return float(h) * (1.0 / 4294967296.0); }
 vec3 h33(vec3 p){ return vec3(h31(p), h31(p + 17.3), h31(p + 41.7)); }
 float vn3(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(mix(h31(i), h31(i + vec3(1,0,0)), f.x), mix(h31(i + vec3(0,1,0)), h31(i + vec3(1,1,0)), f.x), f.y),
