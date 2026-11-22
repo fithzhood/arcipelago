@@ -63,7 +63,7 @@ let pittore = null, attesa = null, indice = -1, richiesta = 0;
 const NOMI = { coniglio: 'Il coniglio', gatto: 'Il gatto' };
 const nuovoAnim = (g) => new Animatore(g, {
   suCaduta: (chi) => { avviso.innerHTML = `${NOMI[chi] || 'Il coniglio'} è caduto. <b>Z</b> per tornare indietro.`; avviso.hidden = false; },
-  suFine: () => { riprendi(); comandi(); },
+  suFine: () => { riprendi(); comandi(); if (aCasa && !anim.occupato) { aCasa = false; fineDemo(); } },
   suEntra: (s) => entra(s),
   suVince: () => esci(true),
 });
@@ -137,8 +137,13 @@ async function scegli(i, { chiuso = false } = {}) {
 function esegui(m) {
   if (inTransito || inEditor) return;
   if (anim.occupato) { attesa = m; return; }
+  const chi = () => gioco.stato.personaggi[gioco.stato.attivo], da = chi()?.tratto;
   anim.riproduci(m === 'cambia' ? gioco.cambia() : gioco.muovi(...m));
+  // fatto il giro (l'approdo è già scoperto), chi rientra nella casa chiude la demo: il foglio arriva a
+  // passo finito (suFine)
+  if (demo && !pila.length && da !== 'casa' && chi()?.tratto === 'casa' && gioco.esplorati.has('approdo')) aCasa = true;
 }
+let aCasa = false;
 // con due personaggi si passa dall'uno all'altro (spazio, Tab o il pulsante)
 const bCambia = document.getElementById('cambia');
 bCambia.onclick = () => { esegui('cambia'); bCambia.blur(); };
@@ -223,26 +228,22 @@ async function esci(vinto = false) {
     comandi();
     await pittore.apriSipario();
   } finally { inTransito = false; comandi(); }
-  if (vinto) fineDemo();
 }
 bEsci.onclick = () => { esci(); bEsci.blur(); };
 
-// ---- la fine della demo (Luca, 21/11): quando tutti gli obbligatori delle isole della demo sono
-// risolti, un foglio con la percentuale (sigilli risolti su quelli delle isole della demo) e l'elenco
-// isola per isola. Torna una seconda volta solo arrivando al 100%. Dal 22/11 c'è anche l'approdo.
+// ---- la fine della demo (Luca, 21-22/11): quando si torna alla casa dopo aver fatto il giro delle
+// isole, un foglio con la percentuale (sigilli risolti su quelli delle isole della demo) e l'elenco
+// isola per isola. Rientrando ancora ricompare solo se nel frattempo si è risolto qualche sigillo.
 const ISOLE_DEMO = [['casa', 'La casa'], ['frutteto', 'Il frutteto'], ['radura', 'La radura'], ['pietre', 'Le pietre'], ['approdo', "L'approdo"]];
 const fine = document.getElementById('fine');
-let fineVista = false, centoVisto = false;
+let fattiVisti = -1;
 async function fineDemo(forza = false) {
   if ((!demo && !forza) || pila.length) return;
   const sig = [...gioco.liv.sigilli.values()].map((s) => ({ s, isola: gioco.liv.trattoDi(s.x, s.y) })).filter((x) => ISOLE_DEMO.some(([id]) => id === x.isola));
   if (!sig.length) return;
   const fatto = (x) => gioco.risolti.has(x.s.livello), fatti = sig.filter(fatto).length, tutti = fatti === sig.length;
-  if (!forza) {
-    if (!sig.filter((x) => !x.s.facoltativo).every(fatto)) return;
-    if (tutti ? centoVisto : fineVista) return;
-  }
-  fineVista = true; if (tutti) centoVisto = true;
+  if (!forza && fatti === fattiVisti) return; // già visto con gli stessi sigilli risolti
+  fattiVisti = fatti;
   // i nomi dei sottolivelli si leggono dai loro file: quelli mai visti vanno caricati prima
   await Promise.all(sig.filter((x) => !titoloDi(x.s.livello)).map((x) => caricaMappa(`livelli/sottolivelli/${x.s.livello}.json`).then((d) => titoli.set(x.s.livello, d.titolo)).catch(() => {})));
   fine.querySelector('.cento').textContent = Math.round((fatti / sig.length) * 100) + '%';
