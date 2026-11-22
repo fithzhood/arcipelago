@@ -38,8 +38,25 @@ async function caricaMappa(url) {
   const m = bozze.get(url) || salvate.get(url);
   const def = daTiled(m);
   def.tiled = m; def.file = url; // per l'editor
+  if (def.sigilli?.length) await numera(def);
   return def;
 }
+/**
+ * I numeri dei sottolivelli (Luca, 22/11): si seguono le isole nell'ordine in cui si raggiungono (il
+ * risolutore dice in quante mosse), e su ogni isola prima l'obbligatorio, poi il facoltativo. Calcolati
+ * dalla mappa: se i sigilli si spostano, si rinumerano da soli. Le isole irraggiungibili vanno in fondo.
+ */
+async function numera(def) {
+  const { esplora } = await import('./misura.js');
+  const liv = caricaLivello(def), r = esplora(liv), isole = [...new Set(liv.tratti.map((t) => t.nome))];
+  const quanto = (t) => (r.arrivi.has(t) ? r.arrivi.get(t).length : 1e6 + isole.indexOf(t));
+  const sig = def.sigilli.map((s) => ({ s, d: quanto(liv.trattoDi(s.x, s.y)) }));
+  sig.sort((a, b) => a.d - b.d || a.s.facoltativo - b.s.facoltativo);
+  sig.forEach((x, i) => { x.s.numero = i + 1; });
+}
+/** «3 · L'ascensore», o solo il nome se il numero non c'è. */
+const conNumero = (n, t) => (n ? `${n} · ${t}` : t);
+
 const avviso = document.getElementById('avviso');
 const bottoni = document.getElementById('stili');
 let pittore = null, attesa = null, indice = -1, richiesta = 0;
@@ -142,9 +159,9 @@ function comandi() {
   // su un sigillo già risolto lo si può rigiocare (Invio o il pulsante)
   const sotto = gioco.sigilloSotto?.();
   bRigioca.hidden = aiutoRigioca.hidden = !sotto || inTransito;
-  if (sotto) { const t = titoloDi(sotto.livello); bRigioca.textContent = t ? `Rigioca «${t}»` : 'Rigioca'; }
+  if (sotto) { const t = titoloDi(sotto.livello); bRigioca.textContent = t ? `Rigioca «${conNumero(sotto.numero, t)}»` : 'Rigioca'; }
   // dentro un sottolivello il suo nome resta in un angolo
-  luogo.textContent = pila.length ? gioco.liv.titolo || '' : ''; luogo.hidden = !pila.length;
+  luogo.textContent = pila.length ? conNumero(pila.at(-1).sigillo.numero, gioco.liv.titolo || '') : ''; luogo.hidden = !pila.length;
 }
 const bRigioca = document.getElementById('rigioca'), aiutoRigioca = document.getElementById('aiuto-rigioca');
 const luogo = document.getElementById('luogo'), cartiglio = document.getElementById('cartiglio');
@@ -159,10 +176,10 @@ function titoloDi(livello) {
 }
 /** Il nome del sottolivello in grande, mentre si apre il sipario; poi sfuma. */
 let tCartiglio = 0;
-function mostraCartiglio(titolo, facoltativo) {
+function mostraCartiglio(titolo, facoltativo, numero) {
   if (!titolo) return;
   cartiglio.querySelector('.nome').textContent = titolo;
-  cartiglio.querySelector('.sotto').textContent = facoltativo ? 'facoltativo' : '';
+  cartiglio.querySelector('.sotto').textContent = [numero ? 'Sigillo ' + numero : '', facoltativo ? 'facoltativo' : ''].filter(Boolean).join(' · ');
   cartiglio.classList.add('visto');
   tCartiglio = setTimeout(() => cartiglio.classList.remove('visto'), 2600);
 }
@@ -180,7 +197,7 @@ async function entra(sigillo) {
     comandi();
     // il nome compare a sipario mezzo aperto: sulle nuvole ancora chiuse, bianco su bianco, non si leggeva
     const t = gioco.liv.titolo, sp = pittore.sipario;
-    const aspetta = () => { if (sp.k < 0.5) mostraCartiglio(t, sigillo.facoltativo); else if (sp.k > 0 && pila.length) tCartiglio = setTimeout(aspetta, 50); };
+    const aspetta = () => { if (sp.k < 0.5) mostraCartiglio(t, sigillo.facoltativo, sigillo.numero); else if (sp.k > 0 && pila.length) tCartiglio = setTimeout(aspetta, 50); };
     tCartiglio = setTimeout(aspetta, 50);
     await pittore.apriSipario();
   } catch (err) {
@@ -238,7 +255,7 @@ async function fineDemo(forza = false) {
     const c = r.insertCell();
     qui.forEach((x, i) => {
       const e = document.createElement('span'); e.className = fatto(x) ? 'si' : 'no';
-      e.textContent = (fatto(x) ? '✓ ' : '○ ') + (titoloDi(x.s.livello) || x.s.livello);
+      e.textContent = (fatto(x) ? '✓ ' : '○ ') + conNumero(x.s.numero, titoloDi(x.s.livello) || x.s.livello);
       if (i) c.append(document.createElement('br'));
       c.append(e);
     });

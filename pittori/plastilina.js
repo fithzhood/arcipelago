@@ -109,7 +109,7 @@ export function kitArgilla() {
  * Il segno inciso sulle pietre dei sigilli: quattro punte a croce, "qui si muove", diverso da ogni
  * glifo del gioco perché non lo si scambi per uno da usare. Bianco: il colore lo dà il materiale.
  */
-function texSigillo() {
+function texSigillo(numero) {
   const S = 256, cv = document.createElement('canvas'); cv.width = cv.height = S;
   const x = cv.getContext('2d');
   x.translate(S / 2, S / 2); x.scale(S / 128, S / 128);
@@ -119,10 +119,17 @@ function texSigillo() {
   for (let i = 0; i < 4; i++) {
     x.save(); x.rotate((i * Math.PI) / 2);
     x.beginPath(); x.moveTo(-10, -34); x.lineTo(0, -44); x.lineTo(10, -34); x.stroke();
-    x.beginPath(); x.moveTo(0, -14); x.lineTo(0, -38); x.stroke();
+    if (!numero) { x.beginPath(); x.moveTo(0, -14); x.lineTo(0, -38); x.stroke(); }
     x.restore();
   }
-  x.beginPath(); x.arc(0, 0, 8, 0, Math.PI * 2); x.fill();
+  // al centro il numero del sottolivello (Luca, 22/11); l'uscita dei sottolivelli tiene il punto
+  // (al posto dei raggi interni: a grandezza di gioco un numero piccolo non si leggeva), su un disco scuro
+  if (numero) {
+    x.fillStyle = 'rgba(0,0,0,0.5)'; x.beginPath(); x.arc(0, 0, 33, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#fff'; x.font = `800 ${numero > 9 ? 40 : 52}px system-ui, "Segoe UI", sans-serif`;
+    x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(String(numero), 0, 3);
+  }
+  else { x.beginPath(); x.arc(0, 0, 8, 0, Math.PI * 2); x.fill(); }
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
   return t;
 }
@@ -275,7 +282,7 @@ export function crea(renderer, gioco, anim, opz = {}) {
     });
     P.needsUpdate = true; C.needsUpdate = true;
   };
-  let segnoSigillo = null;
+  const segniSigillo = new Map(), trameSegni = []; // una trama per numero
   const nube = (c) => { if (!nubi.has(c)) { const m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.75 }); nubi.set(c, m); materiali.push(m); } return nubi.get(c); };
 
   // fondale dipinto: cielo da teatrino, più chiaro in basso
@@ -402,8 +409,9 @@ export function crea(renderer, gioco, anim, opz = {}) {
     pietra(p) {
       const g = new THREE.Group();
       g.add(mesh(varia('pietra', () => bitorzola(new THREE.CylinderGeometry(0.42, 0.45, 0.1, 28, 2), 0.025, 5)), '#a99d8b', 0, 0.02, 0));
-      segnoSigillo ??= texSigillo();
-      const segno = new THREE.Mesh(new THREE.PlaneGeometry(0.66, 0.66), new THREE.MeshBasicMaterial({ map: segnoSigillo, transparent: true, depthWrite: false, color: '#ffb020' }));
+      const k = p.meta ? 0 : p.numero || 0;
+      if (!segniSigillo.has(k)) { const t = texSigillo(k); segniSigillo.set(k, t); trameSegni.push(t); }
+      const segno = new THREE.Mesh(new THREE.PlaneGeometry(0.66, 0.66), new THREE.MeshBasicMaterial({ map: segniSigillo.get(k), transparent: true, depthWrite: false, color: '#ffb020' }));
       segno.rotation.x = -Math.PI / 2; segno.position.y = 0.075; segno.renderOrder = 2; g.add(segno);
       const alone = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.52, 40), new THREE.MeshBasicMaterial({ color: '#ffd070', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
       alone.rotation.x = -Math.PI / 2; alone.position.y = 0.08; alone.renderOrder = 3; g.add(alone);
@@ -507,6 +515,6 @@ export function crea(renderer, gioco, anim, opz = {}) {
       vita(dt, p.anim.tempo);
       muoviMagia(p.scene, dt, p.anim.tempo);
     },
-    dispose: () => { materiali.forEach((m) => m.dispose()); geoS.dispose(); fondale.dispose(); },
+    dispose: () => { materiali.forEach((m) => m.dispose()); geoS.dispose(); fondale.dispose(); trameSegni.forEach((t) => t.dispose()); },
   });
 }

@@ -23,7 +23,7 @@ export class Animatore {
     this.scoperti = new Set(gioco.esplorati);
     // le pietre: i sigilli (accesi finché il loro sottolivello non è risolto) e, nei sottolivelli,
     // l'uscita, la pietra gemella, incatenata finché resta una zona tratteggiata vuota
-    this.pietre = [...gioco.liv.sigilli.values()].map((s) => ({ x: s.x, y: s.y, livello: s.livello, meta: false, luce: gioco.risolti.has(s.livello) ? 0 : 1, imp: 0 }));
+    this.pietre = [...gioco.liv.sigilli.values()].map((s) => ({ x: s.x, y: s.y, livello: s.livello, numero: s.numero, meta: false, luce: gioco.risolti.has(s.livello) ? 0 : 1, imp: 0 }));
     // le zone tratteggiate: `piena` cambia quando la lastra entra o esce (a fine animazione, non prima)
     this.sagome = gioco.liv.sagome.map(() => ({ piena: 0, luce: 0 }));
     // l'uscita è sempre accesa
