@@ -229,8 +229,8 @@ bEsci.onclick = () => { esci(); bEsci.blur(); };
 
 // ---- la fine della demo (Luca, 21/11): quando tutti gli obbligatori delle isole della demo sono
 // risolti, un foglio con la percentuale (sigilli risolti su quelli delle isole della demo) e l'elenco
-// isola per isola. Torna una seconda volta solo arrivando al 100%. L'approdo non è nella demo.
-const ISOLE_DEMO = [['casa', 'La casa'], ['frutteto', 'Il frutteto'], ['radura', 'La radura'], ['pietre', 'Le pietre']];
+// isola per isola. Torna una seconda volta solo arrivando al 100%. Dal 22/11 c'è anche l'approdo.
+const ISOLE_DEMO = [['casa', 'La casa'], ['frutteto', 'Il frutteto'], ['radura', 'La radura'], ['pietre', 'Le pietre'], ['approdo', "L'approdo"]];
 const fine = document.getElementById('fine');
 let fineVista = false, centoVisto = false;
 async function fineDemo(forza = false) {
@@ -316,7 +316,7 @@ comandi();
 
 const DIR = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] };
 addEventListener('keydown', (e) => {
-  if (inEditor) return; // i tasti li prende l'editor
+  if (inEditor || !e.key) return; // i tasti li prende l'editor; un evento senza tasto non vale
   if (!fine.hidden) { if (e.key === 'Escape' || e.key === 'Enter') document.getElementById('fine-continua').click(); return; }
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (DIR[k]) { e.preventDefault(); if (!e.repeat || !anim.occupato) esegui(DIR[k]); }
